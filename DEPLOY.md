@@ -1,50 +1,50 @@
-# Host it for free — Render, ~5 minutes
+# Deploy on Cloudflare Pages — free, never sleeps
 
-This folder ships as one piece: a Python server (`serve.py`) that serves
-the page AND proxies the XML feed URL. Render runs it for free, gives
-you a public HTTPS URL anyone can use.
+Free, public URL, no cold-start delay, streams big feeds. The
+proxy lives in `functions/api/feed.js` and Cloudflare auto-routes it.
 
 ## Steps
 
-1. **Push this folder to a GitHub repo** (any name, public or private).
-   - On GitHub: *New repo* -> drag `index.html`, `serve.py`, `render.yaml`
-     into the upload area -> commit.
-   - Or if you use git locally: `git init && git add . && git commit -m "init"`
-     then push.
+1. Go to <https://dash.cloudflare.com/sign-up> and sign in (Google works).
+2. Left sidebar → **Workers & Pages** → **Create application** → **Pages** tab → **Connect to Git**.
+3. Authorize Cloudflare to read GitHub. Scope to **just this repo**
+   (`anirudhmalhotra-dot/feed-to-csv`) if you want.
+4. Pick the repo → **Begin setup**. Build settings:
 
-2. **Sign up at <https://render.com>** (Google login is fine).
+   | Field | Value |
+   |---|---|
+   | Project name | `feed-to-csv` (or anything; this becomes your subdomain) |
+   | Production branch | `main` |
+   | Framework preset | **None** |
+   | Build command | *(leave blank)* |
+   | Build output directory | `/` |
 
-3. **New +** -> **Web Service** -> connect your GitHub account ->
-   pick the repo.
+5. Click **Save and Deploy**. ~30 seconds later:
+   ```
+   https://feed-to-csv.pages.dev
+   ```
+   Share that link.
 
-4. Render reads `render.yaml` automatically. Settings auto-fill:
-   - Environment: `Python`
-   - Build command: `echo no-build`
-   - Start command: `python serve.py`
-   - Plan: `Free`
+## What you get on the free tier
 
-   Click **Create Web Service**.
-
-5. Wait ~60 seconds. Your URL appears at the top:
-   `https://feed-to-csv-xxxx.onrender.com`
-
-6. Share it. Done.
-
-## Notes
-
-- **Free tier sleeps after 15 min idle**. First hit after sleep takes
-  ~30 s to wake up. After that it's instant. Upgrade to the $7/mo
-  Starter plan to keep it always-on if needed.
-- **Auto-deploy on git push**: every commit redeploys in ~30 s.
-- **Custom domain**: free, add it from the Render dashboard once your
-  service is live (Settings -> Custom Domain).
-- **Logs**: live tail in the Render dashboard. Useful if a feed URL
-  starts misbehaving.
+- Static page: unlimited bandwidth.
+- Function (`/api/feed`): 100,000 requests / day.
+- **No sleep**, no cold start — always instant.
+- Streaming responses with no wall-clock limit, so a 1 GB Joveo
+  feed flows through fine.
+- Auto-redeploys on every `git push` to `main`.
 
 ## Local dev
 
+`serve.py` still works for local testing (it has its own /api/feed
+proxy). The Cloudflare function only kicks in when the site is
+running on Pages.
+
 ```bash
-python serve.py            # http://localhost:8000
+python serve.py     # http://localhost:8000
 ```
 
-That's it. Same server runs locally and in production.
+## Custom domain (optional)
+
+Cloudflare Pages → your project → **Custom domains** → **Set up a
+custom domain**. Free if the domain's already on Cloudflare DNS.
