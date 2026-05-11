@@ -1,0 +1,21 @@
+/**
+ * Cloudflare Workers config.
+ *
+ * Tells the deploy how to bind static assets and where the Worker
+ * entry lives. The auto-deploy from GitHub picks this up on every
+ * push to `main`.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "feed-to-csv",
+  "main": "_worker.js",
+  "compatibility_date": "2024-09-26",
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
