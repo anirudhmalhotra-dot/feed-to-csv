@@ -1,0 +1,20 @@
+# Render blueprint — declarative config so a Git push deploys this
+# whole site as a free Python web service. Render reads this file
+# automatically on the first deploy.
+#
+# What you get: a persistent HTTPS URL like  https://<name>.onrender.com
+# Free tier: spins down after 15 min of idle (cold start ~30s), wakes
+# on the next request. Fine for an internal tool.
+
+services:
+  - type: web
+    name: feed-to-csv
+    runtime: python
+    plan: free
+    region: oregon
+    # No deps to install — only standard library. Keeping the build
+    # command no-op is faster than skipping it.
+    buildCommand: "echo no-build"
+    # Render sets $PORT; serve.py honours it.
+    startCommand: "python serve.py"
+    autoDeploy: true

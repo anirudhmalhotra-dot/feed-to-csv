@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>joveo · feed → csv</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%231A1F4A%22/></svg>" />
+  <style>
+    :root {
+      --navy: #1A1F4A;
+      --navy-2: #2A2F66;
+      --ink: #1A1F4A;
+      --ink-2: #4F5A75;
+      --ink-3: #94A1B8;
+      --line: #E6E8F0;
+      --line-soft: #F1F3F8;
+      --tint: #FAFBFD;
+      --tint-2: #F4F6FB;
+      --good: #1F7A4A;
+      --good-bg: #EEFBF3;
+      --bad: #B7295E;
+      --bad-bg: #FBEEF2;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px; line-height: 1.55;
+      color: var(--ink);
+      background: #ffffff;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .mono { font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; }
+
+    .shell { max-width: 760px; margin: 0 auto; padding: 40px 28px 80px; }
+    @media (max-width: 600px) { .shell { padding: 24px 18px 56px; } }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 24px; margin-bottom: 40px;
+    }
+    .logo {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 500; font-size: 30px; letter-spacing: -0.04em;
+      color: var(--navy); line-height: 1; text-decoration: none;
+    }
+    .meta {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+
+    h1 {
+      font-size: 28px; font-weight: 600; letter-spacing: -0.02em;
+      line-height: 1.15; margin: 0 0 28px;
+    }
+
+    .card {
+      background: #ffffff; border: 1px solid var(--line);
+      border-radius: 16px; padding: 24px;
+    }
+    @media (max-width: 600px) { .card { padding: 18px; } }
+
+    .tabs {
+      display: inline-flex; border: 1px solid var(--line);
+      border-radius: 999px; padding: 4px; margin-bottom: 18px;
+      background: var(--tint);
+    }
+    .tab {
+      appearance: none; background: transparent; border: 0;
+      padding: 8px 18px; font: inherit; font-size: 13px; font-weight: 500;
+      color: var(--ink-2); border-radius: 999px; cursor: pointer;
+      transition: background-color 120ms ease, color 120ms ease;
+    }
+    .tab[aria-selected="true"] {
+      background: var(--navy); color: #ffffff;
+    }
+    .tab:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+    input[type="url"], textarea {
+      width: 100%; font: inherit; font-size: 14px; color: var(--ink);
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+      background: var(--tint);
+      transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+    }
+    input[type="url"]:focus, textarea:focus {
+      outline: none; border-color: var(--navy); background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(26, 31, 74, 0.08);
+    }
+    textarea {
+      min-height: 200px; resize: vertical;
+      font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12.5px; line-height: 1.5;
+    }
+
+    .drop {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 44px 20px; text-align: center;
+      color: var(--ink-2); cursor: pointer;
+      border: 2px dashed #D1D6E3; border-radius: 12px; background: var(--tint);
+      transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+    }
+    .drop:hover, .drop.dragover {
+      border-color: var(--navy); background: var(--tint-2); color: var(--navy);
+    }
+    .drop svg { width: 32px; height: 32px; margin-bottom: 10px; opacity: 0.8; }
+    .drop strong { color: var(--navy); font-weight: 600; }
+    .drop .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 6px; }
+    .drop input[type="file"] { display: none; }
+
+    .actions {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 18px; flex-wrap: wrap;
+    }
+    button.primary {
+      appearance: none; border: 0; background: var(--navy); color: #ffffff;
+      font: inherit; font-size: 14px; font-weight: 600;
+      padding: 12px 22px; border-radius: 10px; cursor: pointer;
+      transition: background-color 120ms ease;
+    }
+    button.primary:hover { background: var(--navy-2); }
+    button.primary:disabled { background: #C5CAD9; cursor: not-allowed; }
+    button.ghost {
+      appearance: none; background: transparent; border: 1px solid var(--line);
+      color: var(--ink-2); font: inherit; font-size: 13px;
+      padding: 11px 16px; border-radius: 10px; cursor: pointer;
+    }
+    button.ghost:hover { border-color: var(--navy); color: var(--navy); }
+
+    .status {
+      margin-top: 18px; padding: 12px 16px; border-radius: 10px;
+      font-size: 13px;
+      font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      display: none; align-items: center; gap: 10px;
+    }
+    .status.show { display: flex; }
+    .status .spin {
+      width: 12px; height: 12px; border-radius: 999px;
+      border: 2px solid currentColor; border-top-color: transparent;
+      animation: spin 0.85s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status.info    { background: var(--tint-2); color: var(--navy); }
+    .status.error   { background: var(--bad-bg);  color: var(--bad); }
+    .status.success { background: var(--good-bg); color: var(--good); }
+    .status .text { word-break: break-word; }
+
+    .result { margin-top: 24px; display: none; }
+    .result.show { display: block; }
+    .result-header {
+      display: flex; gap: 12px; flex-wrap: wrap;
+      align-items: stretch; margin-bottom: 14px;
+    }
+    .stats {
+      display: flex; gap: 24px; flex-wrap: wrap;
+      align-items: center; flex: 1;
+      padding: 12px 16px; background: var(--tint);
+      border-radius: 10px; border: 1px solid var(--line);
+    }
+    .stat { display: flex; flex-direction: column; }
+    .stat .label {
+      font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .stat .value {
+      font-size: 20px; font-weight: 600; color: var(--ink);
+      letter-spacing: -0.01em; line-height: 1.1; margin-top: 2px;
+    }
+
+    .preview {
+      overflow-x: auto; border: 1px solid var(--line);
+      border-radius: 12px; background: #ffffff;
+      max-height: 420px; overflow-y: auto;
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 12.5px;
+      font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    }
+    th, td {
+      text-align: left; padding: 9px 12px;
+      border-bottom: 1px solid var(--line-soft);
+      white-space: nowrap; max-width: 260px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    th {
+      background: var(--tint); font-weight: 600; color: var(--ink-2);
+      font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+      position: sticky; top: 0; z-index: 1;
+    }
+    tbody tr:hover { background: var(--tint); }
+    tbody tr:last-child td { border-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="logo" href="/">joveo</a>
+      <span class="meta">feed → csv</span>
+    </header>
+
+    <h1>XML feed → CSV.</h1>
+
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true"  data-tab="url"  id="tab-url">URL</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="file" id="tab-file">File</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="text" id="tab-text">Paste</button>
+      </div>
+
+      <section id="panel-url">
+        <input
+          type="url"
+          id="urlInput"
+          placeholder="https://example.com/feed.xml"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="actions">
+          <button class="primary" id="convertUrl" type="button">Convert</button>
+          <button class="ghost" id="resetUrl" type="button">Reset</button>
+        </div>
+      </section>
+
+      <section id="panel-file" hidden>
+        <label class="drop" id="dropZone" for="fileInput" tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v12" />
+            <path d="m7 8 5-5 5 5" />
+            <path d="M5 21h14a2 2 0 0 0 2-2v-3" />
+            <path d="M3 16v3a2 2 0 0 0 2 2" />
+          </svg>
+          <strong>Drop XML file here</strong>
+          <span class="sub">or click to browse</span>
+          <input type="file" id="fileInput" accept=".xml,application/xml,text/xml" />
+        </label>
+      </section>
+
+      <section id="panel-text" hidden>
+        <textarea id="rawXml" placeholder="<jobs>&#10;  <job>…</job>&#10;</jobs>" spellcheck="false"></textarea>
+        <div class="actions">
+          <button class="primary" id="convertText" type="button">Convert</button>
+          <button class="ghost" id="resetText" type="button">Reset</button>
+        </div>
+      </section>
+
+      <div class="status" id="status" role="status" aria-live="polite">
+        <span class="spin" id="statusSpin" hidden></span>
+        <span class="text" id="statusText"></span>
+      </div>
+
+      <section class="result" id="result" aria-live="polite">
+        <div class="result-header">
+          <div class="stats">
+            <div class="stat"><span class="label">Rows</span><span class="value" id="statRows">0</span></div>
+            <div class="stat"><span class="label">Columns</span><span class="value" id="statCols">0</span></div>
+            <div class="stat"><span class="label">Tag</span><span class="value mono" id="statTag">—</span></div>
+            <div class="stat"><span class="label">Size</span><span class="value" id="statSize">—</span></div>
+          </div>
+          <button class="primary" id="downloadBtn" type="button">Download CSV</button>
+        </div>
+        <div class="preview"><table id="previewTable"></table></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // Tabs
+    // ============================================================
+    const tabs = document.querySelectorAll('.tab');
+    const panels = {
+      url:  document.getElementById('panel-url'),
+      file: document.getElementById('panel-file'),
+      text: document.getElementById('panel-text'),
+    };
+    tabs.forEach((t) => {
+      t.addEventListener('click', () => {
+        tabs.forEach((x) => x.setAttribute('aria-selected', 'false'));
+        t.setAttribute('aria-selected', 'true');
+        const which = t.dataset.tab;
+        Object.entries(panels).forEach(([k, el]) => {
+          if (k === which) el.removeAttribute('hidden');
+          else el.setAttribute('hidden', '');
+        });
+        hideStatus(); hideResult();
+      });
+    });
+
+    // ============================================================
+    // Status / result
+    // ============================================================
+    const $status = document.getElementById('status');
+    const $statusSpin = document.getElementById('statusSpin');
+    const $statusText = document.getElementById('statusText');
+    const $result = document.getElementById('result');
+    function showStatus(msg, kind = 'info', spinning = false) {
+      $statusText.textContent = msg;
+      $status.className = 'status show ' + kind;
+      $statusSpin.hidden = !spinning;
+    }
+    function hideStatus() { $status.className = 'status'; $statusSpin.hidden = true; }
+    function hideResult() { $result.className = 'result'; }
+
+    function fmtBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+      return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'
+      }[c]));
+    }
+    function csvCell(v) {
+      if (v == null) return '';
+      const s = String(v);
+      if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+
+    // ============================================================
+    // Streaming XML → CSV.
+    //
+    // Memory plan: don't keep all rows in a JS string. After every
+    // ~1 MB of CSV text we flush it into a Blob slice and push to an
+    // array. The final CSV is `new Blob([chunk1, chunk2, ...])` —
+    // Blobs are backed by disk-friendly storage, so 1 GB of CSV
+    // works fine. Previous version concatenated into one string and
+    // hit V8's ~512 MB string-length limit around 586k rows.
+    // ============================================================
+    const CHUNK_FLUSH_BYTES = 1_000_000;
+    const SCHEMA_SAMPLE = 50;
+    const PREVIEW_ROWS = 10;
+
+    function detectRecordTag(sample) {
+      const cleaned = sample
+        .replace(/<\?[\s\S]*?\?>/g, '')
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<!DOCTYPE[\s\S]*?>/gi, '');
+      const re = /<([A-Za-z_][\w.\-:]*)(\s|\/|>)/g;
+      const counts = new Map();
+      let m, first = null;
+      while ((m = re.exec(cleaned))) {
+        const tag = m[1];
+        if (!first) { first = tag; continue; }
+        counts.set(tag, (counts.get(tag) || 0) + 1);
+      }
+      let best = null, bestN = 0;
+      for (const [tag, n] of counts) {
+        if (n > bestN) { best = tag; bestN = n; }
+      }
+      return best;
+    }
+
+    function parseRecord(xml) {
+      const dom = new DOMParser().parseFromString(xml, 'application/xml');
+      if (dom.querySelector('parsererror')) return null;
+      const rec = dom.documentElement;
+      const row = {};
+      for (const attr of rec.attributes) row['@' + attr.name] = attr.value;
+      const seen = new Map();
+      for (const child of rec.children) {
+        seen.set(child.tagName, (seen.get(child.tagName) || 0) + 1);
+      }
+      for (const child of rec.children) {
+        const tag = child.tagName;
+        const value = (child.textContent || '').replace(/\s+/g, ' ').trim();
+        if (seen.get(tag) > 1) {
+          row[tag] = row[tag] ? row[tag] + '; ' + value : value;
+        } else {
+          row[tag] = value;
+        }
+      }
+      return row;
+    }
+
+    async function streamParse(chunkIter, onProgress) {
+      let buffer = '';
+      let recordTag = null;
+      let openRe = null, closeRe = null;
+
+      // Schema discovery: hold the first N rows until columns are locked,
+      // then write the header and re-emit those rows as CSV.
+      let cols = null;
+      const colSet = new Set();
+      const buffered = [];
+
+      // Streaming CSV output: accumulate text up to ~1MB then flush to a
+      // Blob chunk. Final downloadable = new Blob([chunk1, chunk2, ...]).
+      const csvChunks = [];
+      let pending = '';
+
+      const previewRows = [];
+      let rowCount = 0;
+      let bytesIn = 0;
+
+      function emitRow(row) {
+        rowCount++;
+        if (previewRows.length < PREVIEW_ROWS) previewRows.push(row);
+        const line = cols.map((c) => csvCell(row[c])).join(',') + '\n';
+        pending += line;
+        if (pending.length >= CHUNK_FLUSH_BYTES) {
+          csvChunks.push(new Blob([pending], { type: 'text/csv;charset=utf-8' }));
+          pending = '';
+        }
+      }
+
+      function lockSchemaAndFlushBuffered() {
+        cols = Array.from(colSet);
+        pending += cols.map(csvCell).join(',') + '\n';
+        for (const r of buffered) emitRow(r);
+        buffered.length = 0;
+      }
+
+      for await (const chunk of chunkIter) {
+        bytesIn += chunk.length;
+        buffer += chunk;
+
+        if (!recordTag && buffer.length >= 8 * 1024) {
+          recordTag = detectRecordTag(buffer.slice(0, 64 * 1024));
+          if (!recordTag) continue;
+          openRe = new RegExp('<' + recordTag + '(?:\\s[^>]*)?>', 'g');
+          closeRe = new RegExp('</' + recordTag + '>', 'g');
+        }
+        if (!recordTag) continue;
+
+        let lastConsumed = 0;
+        while (true) {
+          openRe.lastIndex = lastConsumed;
+          const openMatch = openRe.exec(buffer);
+          if (!openMatch) break;
+          closeRe.lastIndex = openMatch.index;
+          const closeMatch = closeRe.exec(buffer);
+          if (!closeMatch) break;
+          const start = openMatch.index;
+          const end = closeMatch.index + closeMatch[0].length;
+          const block = buffer.slice(start, end);
+          const row = parseRecord(block);
+          if (row) {
+            if (cols === null) {
+              for (const k of Object.keys(row)) colSet.add(k);
+              buffered.push(row);
+              if (buffered.length >= SCHEMA_SAMPLE) {
+                lockSchemaAndFlushBuffered();
+              }
+            } else {
+              emitRow(row);
+            }
+          }
+          lastConsumed = end;
+        }
+        if (lastConsumed > 0) buffer = buffer.slice(lastConsumed);
+
+        if (onProgress) onProgress({ bytesIn, rowCount: rowCount + buffered.length });
+        // Yield to the event loop so the progress UI repaints
+        await new Promise((r) => setTimeout(r, 0));
+      }
+
+      // End of stream — flush whatever's still buffered.
+      if (cols === null) {
+        if (buffered.length === 0) {
+          return { recordTag: recordTag || '?', cols: [], previewRows: [],
+                   rowCount: 0, bytesIn, blob: new Blob([], { type: 'text/csv' }) };
+        }
+        lockSchemaAndFlushBuffered();
+      }
+      if (pending.length > 0) {
+        csvChunks.push(new Blob([pending], { type: 'text/csv;charset=utf-8' }));
+        pending = '';
+      }
+      const blob = new Blob(csvChunks, { type: 'text/csv;charset=utf-8' });
+      return { recordTag, cols, previewRows, rowCount, bytesIn, blob };
+    }
+
+    async function* singleChunk(str) { yield str; }
+    async function* fromResponse(resp) {
+      const reader = resp.body.getReader();
+      const td = new TextDecoder('utf-8');
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        yield td.decode(value, { stream: true });
+      }
+      const tail = td.decode();
+      if (tail) yield tail;
+    }
+    async function* fromFile(file) {
+      const reader = file.stream().getReader();
+      const td = new TextDecoder('utf-8');
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        yield td.decode(value, { stream: true });
+      }
+      const tail = td.decode();
+      if (tail) yield tail;
+    }
+
+    // ============================================================
+    // Render + download
+    // ============================================================
+    let lastBlob = null;
+    let lastFilename = 'feed.csv';
+    const $statRows = document.getElementById('statRows');
+    const $statCols = document.getElementById('statCols');
+    const $statTag  = document.getElementById('statTag');
+    const $statSize = document.getElementById('statSize');
+    const $preview  = document.getElementById('previewTable');
+    const $downloadBtn = document.getElementById('downloadBtn');
+
+    function renderResult({ recordTag, cols, previewRows, rowCount, blob }) {
+      lastBlob = blob;
+      $statRows.textContent = rowCount.toLocaleString();
+      $statCols.textContent = cols.length.toLocaleString();
+      $statTag.textContent  = '<' + recordTag + '>';
+      $statSize.textContent = fmtBytes(blob.size);
+      const head = '<thead><tr>' + cols.map((c) => '<th>' + escapeHtml(c) + '</th>').join('') + '</tr></thead>';
+      const body = '<tbody>' + previewRows.map((r) =>
+        '<tr>' + cols.map((c) => '<td>' + escapeHtml(r[c] ?? '') + '</td>').join('') + '</tr>'
+      ).join('') + '</tbody>';
+      $preview.innerHTML = head + body;
+      $result.className = 'result show';
+    }
+    $downloadBtn.addEventListener('click', () => {
+      if (!lastBlob) return;
+      const url = URL.createObjectURL(lastBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = lastFilename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+
+    // ============================================================
+    // URL tab
+    // ============================================================
+    async function fetchFeed(url) {
+      const attempts = [
+        '/api/feed?url=' + encodeURIComponent(url),
+        'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+        url, // last resort (same-origin only)
+      ];
+      let lastErr = null;
+      for (const target of attempts) {
+        try {
+          const r = await fetch(target, { redirect: 'follow' });
+          if (r.ok && r.body) return r;
+          lastErr = new Error('HTTP ' + r.status);
+        } catch (e) { lastErr = e; }
+      }
+      throw lastErr || new Error('all fetch strategies failed');
+    }
+
+    document.getElementById('convertUrl').addEventListener('click', async () => {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) { showStatus('Paste a feed URL first.', 'error'); return; }
+      try { new URL(url); } catch { showStatus('Not a valid URL.', 'error'); return; }
+      hideResult();
+      showStatus('Connecting…', 'info', true);
+      try {
+        const resp = await fetchFeed(url);
+        const parsed = await streamParse(fromResponse(resp), ({ bytesIn, rowCount }) => {
+          showStatus('Streaming… ' + fmtBytes(bytesIn) + ' · ' + rowCount.toLocaleString() + ' rows', 'info', true);
+        });
+        const name = (url.split('/').pop() || 'feed').split('?')[0].replace(/\.xml$/i, '');
+        lastFilename = (name || parsed.recordTag || 'feed') + '.csv';
+        renderResult(parsed);
+        showStatus(parsed.rowCount.toLocaleString() + ' rows · ' + fmtBytes(parsed.blob.size) + ' CSV', 'success');
+      } catch (e) {
+        showStatus('Failed: ' + (e.message || e), 'error');
+      }
+    });
+    document.getElementById('resetUrl').addEventListener('click', () => {
+      document.getElementById('urlInput').value = '';
+      hideStatus(); hideResult();
+    });
+
+    // ============================================================
+    // File tab
+    // ============================================================
+    const $drop = document.getElementById('dropZone');
+    const $file = document.getElementById('fileInput');
+    async function handleFile(file) {
+      if (!file) return;
+      hideResult();
+      showStatus('Reading ' + file.name + '…', 'info', true);
+      try {
+        const parsed = await streamParse(fromFile(file), ({ bytesIn, rowCount }) => {
+          showStatus('Streaming… ' + fmtBytes(bytesIn) + ' · ' + rowCount.toLocaleString() + ' rows', 'info', true);
+        });
+        lastFilename = file.name.replace(/\.xml$/i, '') + '.csv';
+        renderResult(parsed);
+        showStatus(parsed.rowCount.toLocaleString() + ' rows · ' + fmtBytes(parsed.blob.size) + ' CSV', 'success');
+      } catch (e) {
+        showStatus('Failed: ' + (e.message || e), 'error');
+      }
+    }
+    $file.addEventListener('change', () => handleFile($file.files && $file.files[0]));
+    ;['dragenter', 'dragover'].forEach((ev) =>
+      $drop.addEventListener(ev, (e) => { e.preventDefault(); $drop.classList.add('dragover'); })
+    );
+    ;['dragleave', 'drop'].forEach((ev) =>
+      $drop.addEventListener(ev, (e) => { e.preventDefault(); $drop.classList.remove('dragover'); })
+    );
+    $drop.addEventListener('drop', (e) => {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) handleFile(f);
+    });
+
+    // ============================================================
+    // Paste tab
+    // ============================================================
+    document.getElementById('convertText').addEventListener('click', async () => {
+      const text = document.getElementById('rawXml').value.trim();
+      if (!text) { showStatus('Paste some XML first.', 'error'); return; }
+      hideResult();
+      showStatus('Parsing…', 'info', true);
+      try {
+        const parsed = await streamParse(singleChunk(text));
+        lastFilename = (parsed.recordTag || 'pasted') + '.csv';
+        renderResult(parsed);
+        showStatus(parsed.rowCount.toLocaleString() + ' rows · ' + fmtBytes(parsed.blob.size) + ' CSV', 'success');
+      } catch (e) {
+        showStatus('Failed: ' + (e.message || e), 'error');
+      }
+    });
+    document.getElementById('resetText').addEventListener('click', () => {
+      document.getElementById('rawXml').value = '';
+      hideStatus(); hideResult();
+    });
+  </script>
+</body>
+</html>
