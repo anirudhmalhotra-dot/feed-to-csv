@@ -1,0 +1,14 @@
+# Files in this list aren't uploaded as static assets to Cloudflare.
+# Required because assets.directory = "./" sweeps in everything — without
+# this, wrangler would either expose server-side code (_worker.js) on
+# the public URL or refuse to deploy entirely. The error you saw was
+# the latter.
+_worker.js
+wrangler.jsonc
+.assetsignore
+.git
+.gitignore
+serve.py
+DEPLOY.md
+README.md
+*.log
