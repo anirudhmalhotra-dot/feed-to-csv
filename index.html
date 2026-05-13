@@ -336,10 +336,22 @@
     const PREVIEW_ROWS = 10;
 
     function detectRecordTag(sample) {
+      // Strip non-content sections before counting tags:
+      //   - XML processing instructions <?xml ... ?>
+      //   - Comments <!-- ... -->
+      //   - DOCTYPE declarations
+      //   - CDATA sections — CRITICAL for feeds whose <description>
+      //     wraps rich HTML inside CDATA. Without this, tags like
+      //     <br>/<li>/<strong> from the description bodies dominate
+      //     the counts. Real-world hit: a Joveo feed with 171 jobs
+      //     had 476 <br> + 295 <li> + 153 <strong> in 100KB vs only
+      //     14 <job>, so the detector picked <br> and the parser
+      //     produced zero rows (no </br> close tag exists).
       const cleaned = sample
         .replace(/<\?[\s\S]*?\?>/g, '')
         .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/<!DOCTYPE[\s\S]*?>/gi, '');
+        .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
+        .replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '');
       const re = /<([A-Za-z_][\w.\-:]*)(\s|\/|>)/g;
       const counts = new Map();
       let m, first = null;
@@ -352,6 +364,12 @@
       for (const [tag, n] of counts) {
         if (n > bestN) { best = tag; bestN = n; }
       }
+      // A record tag should repeat. Singletons are metadata
+      // (e.g. <publisher>, <publisherurl>) at the top of the feed.
+      // Returning null tells the caller to wait for more data and
+      // retry on the next chunk — guards against the case where the
+      // first record is bigger than the sample window.
+      if (bestN < 2) return null;
       return best;
     }
 
