@@ -19,7 +19,37 @@ export default {
     }
 
     // Static assets (index.html, favicon, anything else in the repo root).
-    return env.ASSETS.fetch(request);
+    // Wrap in a fresh Response so we can override the cache-control. The
+    // default CF static-asset response has aggressive caching that made
+    // the browser cling to old index.html builds for hours after a deploy
+    // — operator reported the post-2026-05-13 CDATA fix wasn't taking
+    // effect because their browser had the pre-fix HTML in cache. Force
+    // no-store for HTML so future deploys land on the very next refresh.
+    //
+    // Match by BOTH path (the bare `/` and explicit `.html`) AND
+    // content-type so we no-cache HTML even if the binding reports the
+    // wrong MIME, and don't accidentally no-cache asset binaries.
+    const assetResp = await env.ASSETS.fetch(request);
+    const ct = (assetResp.headers.get("content-type") || "").toLowerCase();
+    const isHtmlPath = url.pathname === "/" || url.pathname.endsWith(".html") || url.pathname.endsWith("/");
+    const isHtmlContent = ct.startsWith("text/html");
+    if (isHtmlPath || isHtmlContent) {
+      const headers = new Headers(assetResp.headers);
+      headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
+      headers.set("pragma", "no-cache");
+      headers.set("expires", "0");
+      // Force fresh on Cloudflare's edge cache too — without this the
+      // edge serves the stale HTML body for up to 1h regardless of
+      // browser cache. Edge-side no-cache means each request goes to
+      // the worker which re-fetches the static binding.
+      headers.set("cf-cache-status", "BYPASS");
+      return new Response(assetResp.body, {
+        status: assetResp.status,
+        statusText: assetResp.statusText,
+        headers,
+      });
+    }
+    return assetResp;
   },
 };
 
