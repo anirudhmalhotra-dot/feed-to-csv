@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>joveo · feed → csv · how it works</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%231A1F4A%22/></svg>" />
+  <style>
+    :root {
+      --navy: #1A1F4A;
+      --navy-2: #2A2F66;
+      --ink: #1A1F4A;
+      --ink-2: #4F5A75;
+      --ink-3: #94A1B8;
+      --line: #E6E8F0;
+      --line-soft: #F1F3F8;
+      --tint: #FAFBFD;
+      --tint-2: #F4F6FB;
+      --good: #1F7A4A;
+      --good-bg: #EEFBF3;
+      --bad: #B7295E;
+      --bad-bg: #FBEEF2;
+      --warn: #8C5A00;
+      --warn-bg: #FDF6E3;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px; line-height: 1.6;
+      color: var(--ink);
+      background: #ffffff;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .mono {
+      font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .shell { max-width: 820px; margin: 0 auto; padding: 40px 28px 80px; }
+    @media (max-width: 600px) { .shell { padding: 24px 18px 56px; } }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 24px; margin-bottom: 32px;
+    }
+    .logo {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 500; font-size: 30px; letter-spacing: -0.04em;
+      color: var(--navy); line-height: 1; text-decoration: none;
+    }
+    .meta {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .nav {
+      display: inline-flex; gap: 2px;
+      border: 1px solid var(--line); border-radius: 999px;
+      padding: 3px; background: var(--tint);
+    }
+    .nav a {
+      padding: 7px 16px; font-size: 13px; font-weight: 500;
+      color: var(--ink-2); border-radius: 999px; text-decoration: none;
+      transition: background-color 120ms ease, color 120ms ease;
+    }
+    .nav a.active { background: var(--navy); color: #ffffff; }
+    .nav a:hover:not(.active) { background: rgba(26,31,74,0.06); }
+
+    h1 {
+      font-size: 32px; font-weight: 600; letter-spacing: -0.02em;
+      line-height: 1.15; margin: 0 0 14px;
+    }
+    .lede {
+      font-size: 16px; line-height: 1.6; color: var(--ink-2);
+      margin: 0 0 36px; max-width: 64ch;
+    }
+
+    h2 {
+      font-size: 19px; font-weight: 600; letter-spacing: -0.01em;
+      margin: 44px 0 14px;
+    }
+    h2 .num {
+      display: inline-block; width: 28px; height: 28px;
+      line-height: 28px; text-align: center;
+      background: var(--navy); color: #fff; border-radius: 8px;
+      font-size: 12px; font-weight: 600; margin-right: 10px;
+      vertical-align: 2px;
+    }
+    h3 {
+      font-size: 15px; font-weight: 600; letter-spacing: -0.005em;
+      margin: 22px 0 8px; color: var(--navy);
+    }
+    p { margin: 0 0 12px; }
+    p, li { color: var(--ink); }
+    ul, ol { padding-left: 22px; margin: 0 0 14px; }
+    li { margin-bottom: 6px; }
+    li::marker { color: var(--ink-3); }
+
+    a.inline { color: var(--navy); text-decoration: underline;
+                text-decoration-color: var(--ink-3);
+                text-underline-offset: 3px; }
+
+    .card {
+      background: #ffffff; border: 1px solid var(--line);
+      border-radius: 16px; padding: 22px 24px; margin: 12px 0 18px;
+    }
+    @media (max-width: 600px) { .card { padding: 18px; } }
+    .card.tint { background: var(--tint); }
+
+    /* diagram */
+    .diagram {
+      font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px; line-height: 1.55;
+      background: var(--tint-2); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 12px;
+      padding: 18px 20px; overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* code */
+    code {
+      font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      background: var(--tint-2); color: var(--navy-2);
+      padding: 1px 6px; border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+    pre {
+      background: var(--tint-2); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 10px;
+      padding: 14px 16px; overflow-x: auto;
+      font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12.5px; line-height: 1.55;
+      margin: 8px 0 16px;
+    }
+    pre code {
+      background: none; border: 0; padding: 0;
+      color: inherit; font-size: inherit;
+    }
+
+    /* callouts */
+    .note {
+      border-left: 3px solid var(--navy); padding: 10px 14px;
+      background: var(--tint); border-radius: 0 8px 8px 0;
+      margin: 12px 0 16px; font-size: 14px; color: var(--ink-2);
+    }
+    .note strong { color: var(--ink); }
+    .note.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+    .note.warn strong { color: var(--warn); }
+
+    /* tables */
+    table {
+      width: 100%; border-collapse: collapse; margin: 6px 0 16px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left; padding: 9px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    th {
+      font-weight: 600; color: var(--ink-2);
+      font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+      background: var(--tint);
+    }
+    td.mono { font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+
+    /* spec block */
+    .spec {
+      display: grid; grid-template-columns: 160px 1fr;
+      gap: 12px 18px; font-size: 14px; margin: 8px 0 12px;
+    }
+    .spec dt { color: var(--ink-3); font-weight: 500; font-size: 13px; }
+    .spec dd { margin: 0; color: var(--ink); }
+
+    /* timeline */
+    .timeline { border-left: 2px solid var(--line); padding-left: 20px; margin: 6px 0 18px; }
+    .timeline .item { padding-bottom: 18px; position: relative; }
+    .timeline .item::before {
+      content: ""; position: absolute; left: -27px; top: 6px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--navy); border: 2px solid #fff;
+    }
+    .timeline .date { font-size: 12px; color: var(--ink-3);
+                      letter-spacing: 0.05em; text-transform: uppercase;
+                      font-weight: 600; margin-bottom: 4px; }
+    .timeline .title { font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+    .timeline .desc { font-size: 14px; color: var(--ink-2); }
+
+    footer {
+      margin-top: 64px; padding-top: 20px;
+      border-top: 1px solid var(--line);
+      font-size: 12px; color: var(--ink-3); display: flex;
+      justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    }
+    footer a { color: var(--ink-2); text-decoration: none; }
+    footer a:hover { color: var(--navy); }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <a class="logo" href="/">joveo</a>
+      <nav class="nav">
+        <a href="/">Converter</a>
+        <a class="active" href="/logic.html">How it works</a>
+      </nav>
+    </header>
+
+    <h1>How feed → csv works.</h1>
+    <p class="lede">
+      A two-page walkthrough of the streaming XML-to-CSV pipeline — what
+      happens between paste-the-URL and download-the-file, and why each
+      piece exists. Useful when a feed misbehaves or when someone asks
+      whether the tool can handle a 1 GB upload.
+    </p>
+
+    <!-- ────────── 1. WHAT IT IS ────────── -->
+    <h2><span class="num">1</span>What it is</h2>
+    <p>
+      A static webpage backed by a single Cloudflare Worker. Drop in a feed
+      URL, an uploaded <code>.xml</code> file, or pasted XML, and out comes
+      a CSV — one row per record, one column per field. No login, no
+      account, nothing stored. The whole thing fits in one HTML file plus a
+      ~100-line worker.
+    </p>
+    <div class="card tint">
+      <div class="spec">
+        <dt>Live URL</dt>
+        <dd class="mono">feed-to-csv.pages.dev</dd>
+        <dt>Hosting</dt>
+        <dd>Cloudflare Pages + Workers (free tier)</dd>
+        <dt>Repo</dt>
+        <dd class="mono">anirudhmalhotra-dot/feed-to-csv</dd>
+        <dt>Inputs</dt>
+        <dd>URL · File upload · Pasted text</dd>
+        <dt>Tested up to</dt>
+        <dd>1.23 GB XML (Amrize Joveo feed, ~470K jobs)</dd>
+        <dt>State stored</dt>
+        <dd>None — parsing happens in your browser</dd>
+      </div>
+    </div>
+
+    <!-- ────────── 2. ARCHITECTURE ────────── -->
+    <h2><span class="num">2</span>Architecture</h2>
+    <p>
+      Two components — a server-side proxy (≈100 lines, runs on Cloudflare's
+      edge) and an in-browser streaming parser (≈500 lines of vanilla JS in
+      <code>index.html</code>). The browser does the heavy lifting; the
+      worker only exists to dodge CORS.
+    </p>
+
+    <div class="diagram">┌─────────────┐    https     ┌──────────────────────┐    https     ┌────────────────────┐
+│   Browser   │──────────────▶│  Cloudflare Worker   │──────────────▶│   Upstream feed    │
+│ index.html  │   /api/feed   │  _worker.js (~100ln) │  passthrough  │  S3 / CDN / origin │
+│             │◀──────────────│  streams body back   │◀──────────────│  XML, often >1 GB  │
+└─────────────┘   chunked     └──────────────────────┘    chunked    └────────────────────┘
+       │
+       ▼  parse in browser
+┌─────────────────────────────────────────────┐
+│  Streaming XML parser → CSV chunks → Blob   │
+│  detectRecordTag()  parseRecord()  emitRow()│
+└─────────────────────────────────────────────┘
+       │
+       ▼
+   feed.csv (download)</div>
+
+    <h3>Why the worker exists at all</h3>
+    <p>
+      Pure CORS. Most job-feed URLs (S3, CDNs, customer origins) don't return
+      <code>Access-Control-Allow-Origin: *</code>, so the browser refuses to
+      read them. The worker fetches server-side and re-emits the response
+      with the right header. It never buffers — the upstream body streams
+      straight through. Cloudflare's free tier has no wall-clock cap on
+      streaming I/O, which is why 1+ GB feeds work.
+    </p>
+
+    <h3>Why parsing is in the browser</h3>
+    <ul>
+      <li><strong>Privacy</strong> — no feed contents ever sit on a server we own.</li>
+      <li><strong>Cost</strong> — Cloudflare Worker CPU time is metered; browser CPU is free.</li>
+      <li><strong>Simplicity</strong> — one static page, no backend state.</li>
+    </ul>
+
+    <!-- ────────── 3. THE PIPELINE ────────── -->
+    <h2><span class="num">3</span>The pipeline (paste URL → CSV)</h2>
+
+    <h3>Step 1 — Fetch with fallback chain</h3>
+    <p>
+      The URL tab tries three fetch strategies in order, taking whichever
+      one succeeds first:
+    </p>
+    <ol>
+      <li><code>/api/feed?url=&lt;target&gt;</code> — our Cloudflare worker proxy</li>
+      <li><code>api.allorigins.win</code> — public CORS proxy fallback</li>
+      <li>direct <code>fetch(target)</code> — only works if the upstream sets CORS</li>
+    </ol>
+
+    <h3>Step 2 — Detect the record tag</h3>
+    <p>
+      The parser doesn't assume the records are called <code>&lt;job&gt;</code>.
+      It looks at the first ~64KB and counts every tag. The most-repeated
+      tag wins. Before counting, it strips four things that would otherwise
+      pollute the count:
+    </p>
+    <table>
+      <thead><tr><th>Stripped</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">&lt;?xml … ?&gt;</td><td>processing instruction (always exactly 1)</td></tr>
+        <tr><td class="mono">&lt;!-- … --&gt;</td><td>comments (could contain anything)</td></tr>
+        <tr><td class="mono">&lt;!DOCTYPE …&gt;</td><td>doctype declarations</td></tr>
+        <tr><td class="mono">&lt;![CDATA[ … ]]&gt;</td><td>HTML inside descriptions — was breaking real feeds</td></tr>
+      </tbody>
+    </table>
+    <div class="note warn">
+      <strong>Real bug fixed 2026-05-13:</strong> A Joveo feed had 14
+      <code>&lt;job&gt;</code> records and 476 <code>&lt;br&gt;</code> tags inside
+      <code>&lt;description&gt;</code> CDATA. Pre-fix, the detector picked
+      <code>&lt;br&gt;</code> as the "most common tag" and produced zero
+      rows. Stripping CDATA before counting fixed it.
+    </div>
+
+    <h3>Step 3 — Stream-parse records</h3>
+    <p>
+      Once the record tag is known, the parser scans the incoming buffer for
+      open/close pairs. Each matched block is handed to
+      <code>DOMParser</code> which extracts:
+    </p>
+    <ul>
+      <li>All attributes on the record (prefixed with <code>@</code>)</li>
+      <li>All direct-child elements' text content (whitespace-collapsed)</li>
+      <li>Repeated children joined with <code>; </code></li>
+    </ul>
+    <p>
+      Records get popped off the buffer as soon as they're parsed, so memory
+      never grows beyond ~one record's worth of XML.
+    </p>
+
+    <h3>Step 4 — Lock schema after 50 rows</h3>
+    <p>
+      Feeds aren't always consistent — record 1 might have 12 fields,
+      record 32 might add a 13th. The parser holds the first 50 rows in
+      memory, accumulates the union of all field names, then writes the
+      CSV header and flushes those buffered rows. From row 51 onward,
+      schema is locked and emit-as-you-go.
+    </p>
+
+    <h3>Step 5 — Flush CSV chunks to Blobs</h3>
+    <p>
+      Naïve "build the CSV in a string" hits V8's ~512 MB string limit
+      around 600K rows. The fix: every ~1 MB of CSV text gets flushed
+      into a Blob and pushed to an array. At the end:
+    </p>
+    <pre><code>new Blob([chunk1, chunk2, …, chunkN])</code></pre>
+    <p>
+      Blobs are backed by file-system-friendly storage, so the final
+      download object can be 1 GB+ without ever holding it all in JS
+      string memory.
+    </p>
+
+    <!-- ────────── 4. EDGE CASES ────────── -->
+    <h2><span class="num">4</span>Edge cases handled</h2>
+    <table>
+      <thead><tr><th>Case</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Record tag doesn't repeat yet</td><td>Detector returns <code>null</code>, parser waits for more data, retries on the next chunk</td></tr>
+        <tr><td>Single-element XML</td><td>Detector returns the only tag if it appears ≥ 2 times; otherwise stays in wait-state and surfaces an empty result</td></tr>
+        <tr><td>Repeated child fields (e.g. 2× <code>&lt;category&gt;</code>)</td><td>Joined with <code>; </code> in the single CSV cell</td></tr>
+        <tr><td>Attributes on the record</td><td>Surfaced as columns prefixed with <code>@</code> (e.g. <code>@id</code>, <code>@lang</code>)</td></tr>
+        <tr><td>CSV-unsafe chars (<code>"</code>, <code>,</code>, newline)</td><td>RFC 4180 quoting — wrap in <code>"…"</code>, escape internal <code>"</code> as <code>""</code></td></tr>
+        <tr><td>Upstream returns HTML error page</td><td>Worker returns 502 with the upstream status; UI surfaces a red error</td></tr>
+        <tr><td>Browser drops connection mid-stream</td><td>Already-parsed rows stay in the Blob; UI shows partial row count</td></tr>
+      </tbody>
+    </table>
+
+    <h2><span class="num">5</span>Cache + deploy gotcha</h2>
+    <p>
+      Cloudflare's static-asset binding aggressively caches HTML — by
+      default the browser can hold an old <code>index.html</code> for an
+      hour after a fresh deploy. The worker forces no-store on HTML
+      responses so a deploy lands on the very next request:
+    </p>
+    <pre><code>cache-control: no-store, no-cache, must-revalidate, max-age=0
+cf-cache-status: BYPASS</code></pre>
+    <p>
+      Non-HTML assets (favicon, etc.) still cache normally. This was
+      hot-fixed after the CDATA-detection rollout because operators were
+      seeing the old parser despite a successful deploy.
+    </p>
+
+    <!-- ────────── 6. LIMITS ────────── -->
+    <h2><span class="num">6</span>Limits</h2>
+    <ul>
+      <li><strong>Free-tier requests</strong> — 100,000 worker invocations per day. Each conversion is one invocation.</li>
+      <li><strong>Concurrent users</strong> — no soft limit; each browser does its own parse.</li>
+      <li><strong>Browser memory</strong> — the Blob-chunking pattern was tested to ~1.5 GB CSV output on a 16 GB laptop. Above that, the browser may swap.</li>
+      <li><strong>Wall-clock</strong> — proxy stream has no cap (Cloudflare property), so a slow upstream just means a slow parse. The UI shows live byte/row counters.</li>
+      <li><strong>Non-XML inputs</strong> — surfaced as a parse error per record; the schema-discovery phase will time out gracefully with an empty result rather than crash.</li>
+    </ul>
+
+    <!-- ────────── 7. PRIVACY ────────── -->
+    <h2><span class="num">7</span>Data handling</h2>
+    <ul>
+      <li>The Cloudflare Worker proxies bytes; it does not buffer or log feed contents.</li>
+      <li>All XML→CSV parsing runs in your browser tab.</li>
+      <li>The download is generated as a local Blob and never round-trips back to a server.</li>
+      <li>No analytics, cookies, or third-party scripts.</li>
+    </ul>
+
+    <!-- ────────── 8. CHANGELOG ────────── -->
+    <h2><span class="num">8</span>Changelog</h2>
+    <div class="timeline">
+      <div class="item">
+        <div class="date">2026-05-13b</div>
+        <div class="title">CDATA-aware record detection + no-cache HTML</div>
+        <div class="desc">
+          Detector strips <code>&lt;![CDATA[…]]&gt;</code> before counting
+          tags so feeds with HTML-rich descriptions parse correctly. Worker
+          forces no-store on HTML responses so deploys land instantly.
+        </div>
+      </div>
+      <div class="item">
+        <div class="date">2026-05-11</div>
+        <div class="title">Migrated to Cloudflare Pages + Worker</div>
+        <div class="desc">
+          Moved from Vercel (which had cold-start delays + edge-function
+          time limits) to Cloudflare Pages with a dedicated worker
+          (<code>_worker.js</code>) for the <code>/api/feed</code> proxy.
+          No sleep, no cold start, streaming I/O with no wall-clock cap.
+        </div>
+      </div>
+      <div class="item">
+        <div class="date">Initial</div>
+        <div class="title">Three input modes + streaming parse</div>
+        <div class="desc">
+          URL / file / paste tabs. Schema discovery over first 50 rows.
+          Chunked Blob output to bypass V8 string limit. Live byte/row
+          counter in the status bar during streaming parse.
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────── 9. FAQ ────────── -->
+    <h2><span class="num">9</span>FAQ</h2>
+    <h3>Why doesn't the URL tab work for some feeds?</h3>
+    <p>
+      The upstream is either rejecting the worker's user-agent, requiring
+      authentication, or returning a non-XML body. The status bar will say
+      <em>"upstream returned 403"</em> or similar. Try the File tab — download
+      the feed locally first, then drag it in.
+    </p>
+    <h3>What if the record tag is something weird?</h3>
+    <p>
+      The tag-stat box on the result panel shows what the parser picked.
+      If it's wrong, the most common cause is the feed having a one-off
+      structure where the "wrong" tag genuinely repeats more than the right
+      one. Open a GitHub issue with a sample.
+    </p>
+    <h3>Why CSV instead of JSON or Parquet?</h3>
+    <p>
+      Excel and Google Sheets open CSV directly. Most operator workflows
+      end at "drop it in a sheet" so CSV is the lowest-friction format.
+    </p>
+    <h3>Can it convert CSV back to XML?</h3>
+    <p>
+      Not today. The use case has been one-way (raw feed → tidy table) so
+      the reverse hasn't come up. Adding it is straightforward — file an
+      issue if you need it.
+    </p>
+
+    <footer>
+      <span>joveo · feed → csv · build 2026-05-13b</span>
+      <span><a href="/">← Back to converter</a></span>
+    </footer>
+  </main>
+</body>
+</html>

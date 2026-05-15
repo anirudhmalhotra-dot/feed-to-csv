@@ -50,6 +50,18 @@
       font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
       text-transform: uppercase; color: var(--ink-3);
     }
+    .nav {
+      display: inline-flex; gap: 2px;
+      border: 1px solid var(--line); border-radius: 999px;
+      padding: 3px; background: var(--tint);
+    }
+    .nav a {
+      padding: 7px 16px; font-size: 13px; font-weight: 500;
+      color: var(--ink-2); border-radius: 999px; text-decoration: none;
+      transition: background-color 120ms ease, color 120ms ease;
+    }
+    .nav a.active { background: var(--navy); color: #ffffff; }
+    .nav a:hover:not(.active) { background: rgba(26,31,74,0.06); }
 
     h1 {
       font-size: 28px; font-weight: 600; letter-spacing: -0.02em;
@@ -197,7 +209,10 @@
   <div class="shell">
     <header>
       <a class="logo" href="/">joveo</a>
-      <span class="meta">feed → csv · build 2026-05-13b</span>
+      <nav class="nav">
+        <a class="active" href="/">Converter</a>
+        <a href="/logic.html">How it works</a>
+      </nav>
     </header>
 
     <h1>XML feed → CSV.</h1>
